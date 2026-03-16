@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid}
+    // Fields:
+    //   - uid: string (required)
+    //   - name: string (required)
+    //   - email: string (required)
+    //   - photoURL: string (optional)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: users/{uid}/files
+    // Document ID: {fileId}
+    // Fields:
+    //   - name: string (required)
+    //   - size: number (required)
+    //   - storagePath: string (required)
+    //   - notes: string (optional)
+    //   - uploadDate: timestamp (required)
+    //   - summary: string (optional)
+    //   - mimeType: string (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'createdAt']) &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidFile(data) {
+      return data.keys().hasAll(['name', 'size', 'storagePath', 'uploadDate']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 255 &&
+             data.size is number && data.size >= 0 &&
+             data.storagePath is string && data.storagePath.size() > 0 &&
+             data.uploadDate is timestamp &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() < 1000)) &&
+             (!('summary' in data) || (data.summary is string && data.summary.size() < 5000));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
+                    request.resource.data.uid == resource.data.uid &&
+                    request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if false; // Users shouldn't delete their profile easily
+
+      match /files/{fileId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidFile(request.resource.data);
+        allow update: if isOwner(userId) && isValidFile(request.resource.data) &&
+                      request.resource.data.storagePath == resource.data.storagePath;
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

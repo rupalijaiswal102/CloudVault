@@ -1,0 +1,42 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "name": { "type": "string", "description": "User's full name" },
+        "email": { "type": "string", "description": "User's email address" },
+        "photoURL": { "type": "string", "description": "URL to profile photo" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account creation timestamp" }
+      },
+      "required": ["uid", "name", "email", "createdAt"]
+    },
+    "FileMetadata": {
+      "title": "File Metadata",
+      "description": "Metadata for an uploaded file",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Original file name" },
+        "size": { "type": "number", "description": "File size in bytes" },
+        "storagePath": { "type": "string", "description": "Path in Firebase Storage" },
+        "notes": { "type": "string", "description": "User notes for the file" },
+        "uploadDate": { "type": "string", "format": "date-time", "description": "When the file was uploaded" },
+        "summary": { "type": "string", "description": "Gemini-generated summary of the file content" },
+        "mimeType": { "type": "string", "description": "MIME type of the file" }
+      },
+      "required": ["name", "size", "storagePath", "uploadDate"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/users/{uid}/files/{fileId}": {
+      "schema": "FileMetadata",
+      "description": "Metadata for files uploaded by the user"
+    }
+  }
+}
