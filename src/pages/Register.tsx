@@ -4,6 +4,7 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { toast } from 'react-hot-toast';
 import { Mail, Lock, User, UserPlus } from 'lucide-react';
+import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 
 interface RegisterProps {
   onSwitch: () => void;
@@ -26,13 +27,18 @@ const Register: React.FC<RegisterProps> = ({ onSwitch }) => {
       await sendEmailVerification(user);
 
       // Create Firestore document
-      await setDoc(doc(db, 'users', user.uid), {
-        uid: user.uid,
-        name: name,
-        email: email,
-        photoURL: null,
-        createdAt: serverTimestamp()
-      });
+      const path = `users/${user.uid}`;
+      try {
+        await setDoc(doc(db, 'users', user.uid), {
+          uid: user.uid,
+          name: name,
+          email: email,
+          photoURL: null,
+          createdAt: serverTimestamp()
+        });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, path);
+      }
 
       toast.success('Registration successful! Please verify your email.');
       onSwitch(); // Go to login
@@ -50,13 +56,18 @@ const Register: React.FC<RegisterProps> = ({ onSwitch }) => {
       const user = result.user;
       
       // Check if user document exists, if not create it
-      await setDoc(doc(db, 'users', user.uid), {
-        uid: user.uid,
-        name: user.displayName,
-        email: user.email,
-        photoURL: user.photoURL,
-        createdAt: serverTimestamp()
-      }, { merge: true });
+      const path = `users/${user.uid}`;
+      try {
+        await setDoc(doc(db, 'users', user.uid), {
+          uid: user.uid,
+          name: user.displayName,
+          email: user.email,
+          photoURL: user.photoURL,
+          createdAt: serverTimestamp()
+        }, { merge: true });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, path);
+      }
 
       toast.success('Signed in with Google');
     } catch (error: any) {

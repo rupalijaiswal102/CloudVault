@@ -6,7 +6,9 @@ import { db, storage } from '../firebase';
 import { useAuth } from '../AuthContext';
 import { summarizeFile } from '../services/gemini';
 import { toast } from 'react-hot-toast';
-import { Upload as UploadIcon, File, X, CheckCircle2, Loader2, FileText, Image as ImageIcon, Music, Video } from 'lucide-react';
+import { Upload as UploadIcon, X, CheckCircle2, Loader2 } from 'lucide-react';
+import { getFileIcon } from '../utils/fileIcons';
+import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 
 interface UploadProps {
   onNavigate: (view: any) => void;
@@ -73,15 +75,20 @@ const Upload: React.FC<UploadProps> = ({ onNavigate }) => {
       setProgress(80);
 
       // 3. Save to Firestore
-      await addDoc(collection(db, 'users', user.uid, 'files'), {
-        name: selectedFile.name,
-        size: selectedFile.size,
-        storagePath: storagePath,
-        notes: notes,
-        uploadDate: serverTimestamp(),
-        summary: summary,
-        mimeType: selectedFile.type
-      });
+      const path = `users/${user.uid}/files`;
+      try {
+        await addDoc(collection(db, 'users', user.uid, 'files'), {
+          name: selectedFile.name,
+          size: selectedFile.size,
+          storagePath: storagePath,
+          notes: notes,
+          uploadDate: serverTimestamp(),
+          summary: summary,
+          mimeType: selectedFile.type
+        });
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, path);
+      }
 
       setProgress(100);
       toast.success('File uploaded and analyzed!');
@@ -92,14 +99,6 @@ const Upload: React.FC<UploadProps> = ({ onNavigate }) => {
     } finally {
       setUploading(false);
     }
-  };
-
-  const getFileIcon = (type: string) => {
-    if (type.startsWith('image/')) return <ImageIcon className="text-blue-500" />;
-    if (type.startsWith('video/')) return <Video className="text-purple-500" />;
-    if (type.startsWith('audio/')) return <Music className="text-pink-500" />;
-    if (type.includes('pdf') || type.includes('word') || type.includes('text')) return <FileText className="text-orange-500" />;
-    return <File className="text-slate-400" />;
   };
 
   return (
@@ -127,7 +126,7 @@ const Upload: React.FC<UploadProps> = ({ onNavigate }) => {
         ) : (
           <div className="bg-slate-50 rounded-2xl p-4 flex items-center gap-4 border border-slate-100 relative">
             <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm">
-              {getFileIcon(selectedFile.type)}
+              {getFileIcon(selectedFile.name, selectedFile.type)}
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-slate-900 truncate">{selectedFile.name}</p>

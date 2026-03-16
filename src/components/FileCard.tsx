@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { FileMetadata } from '../types';
 import { format } from 'date-fns';
-import { Download, Trash2, FileText, Image as ImageIcon, Music, Video, File, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { Download, Trash2, Info, ChevronDown, ChevronUp, Eye } from 'lucide-react';
 import { getDownloadURL, ref } from 'firebase/storage';
 import { storage } from '../firebase';
 import { toast } from 'react-hot-toast';
+import FileViewer from './FileViewer';
+import { getFileIcon } from '../utils/fileIcons';
 
 interface FileCardProps {
   file: FileMetadata;
@@ -13,14 +15,19 @@ interface FileCardProps {
 
 const FileCard: React.FC<FileCardProps> = ({ file, onDelete }) => {
   const [expanded, setExpanded] = useState(false);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
 
-  const getFileIcon = (type?: string) => {
-    if (!type) return <File className="text-slate-400" />;
-    if (type.startsWith('image/')) return <ImageIcon className="text-blue-500" />;
-    if (type.startsWith('video/')) return <Video className="text-purple-500" />;
-    if (type.startsWith('audio/')) return <Music className="text-pink-500" />;
-    if (type.includes('pdf') || type.includes('word') || type.includes('text')) return <FileText className="text-orange-500" />;
-    return <File className="text-slate-400" />;
+  const handleView = async () => {
+    try {
+      if (!fileUrl) {
+        const url = await getDownloadURL(ref(storage, file.storagePath));
+        setFileUrl(url);
+      }
+      setIsViewerOpen(true);
+    } catch (error) {
+      toast.error("Failed to load file preview");
+    }
   };
 
   const handleDownload = async () => {
@@ -44,7 +51,7 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete }) => {
     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-md transition-shadow group">
       <div className="p-4 flex items-start gap-4">
         <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center shrink-0 group-hover:bg-indigo-50 transition-colors">
-          {getFileIcon(file.mimeType)}
+          {getFileIcon(file.name, file.mimeType)}
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-slate-900 truncate mb-1" title={file.name}>
@@ -57,6 +64,13 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete }) => {
           </div>
         </div>
         <div className="flex flex-col gap-2">
+          <button 
+            onClick={handleView}
+            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+            title="View"
+          >
+            <Eye size={18} />
+          </button>
           <button 
             onClick={handleDownload}
             className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
@@ -73,6 +87,14 @@ const FileCard: React.FC<FileCardProps> = ({ file, onDelete }) => {
           </button>
         </div>
       </div>
+
+      <FileViewer 
+        isOpen={isViewerOpen}
+        onClose={() => setIsViewerOpen(false)}
+        fileUrl={fileUrl || ''}
+        fileName={file.name}
+        mimeType={file.mimeType}
+      />
 
       {file.summary && (
         <div className="px-4 pb-4">

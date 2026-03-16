@@ -8,6 +8,7 @@ import { toast } from 'react-hot-toast';
 import FileCard from '../components/FileCard';
 import StorageUsage from '../components/StorageUsage';
 import { Search, Filter, Plus } from 'lucide-react';
+import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 
 interface DashboardProps {
   onNavigate: (view: any) => void;
@@ -35,8 +36,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       setFiles(fileList);
       setLoading(false);
     }, (error) => {
-      console.error("Files fetch error:", error);
-      toast.error("Failed to load files");
+      handleFirestoreError(error, OperationType.LIST, `users/${user.uid}/files`);
       setLoading(false);
     });
 
@@ -52,11 +52,18 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       await deleteObject(storageRef);
 
       // Delete from Firestore
-      await deleteDoc(doc(db, 'users', user.uid, 'files', file.id));
+      const path = `users/${user.uid}/files/${file.id}`;
+      try {
+        await deleteDoc(doc(db, 'users', user.uid, 'files', file.id));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, path);
+      }
       toast.success('File deleted successfully');
     } catch (error: any) {
       console.error("Delete error:", error);
-      toast.error("Failed to delete file");
+      if (!error.message.includes('{')) {
+        toast.error("Failed to delete file");
+      }
     }
   };
 
